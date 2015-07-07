@@ -1,7 +1,9 @@
-{
+{  
 module Lexer where
 
 import Tokens
+import LexerState
+import Control.Lens
 }
 
 %wrapper "monadUserState"
@@ -20,18 +22,18 @@ tokens :-
 
 alexEOF = return Eof
 
-type AlexUserState = String
-alexInitUserState = ""
-
 mkStringAct :: AlexAction TokenKind
 mkStringAct = \_ _ -> do
-  str <- alexGetUserState
+  state <- alexGetUserState
+  let str = view curString state
   return $ TString $ reverse str
 
 accStringAct :: AlexAction TokenKind
 accStringAct = \(_,_,_,inp) len -> do
-                    str <- alexGetUserState
-                    alexSetUserState $ (take len inp) ++ str
+                    state <- alexGetUserState
+                    let str = view curString state
+                    alexSetUserState $ set curString
+                      ((take len inp) ++ str) state
                     alexMonadScan
   
 -- data State = MainState
