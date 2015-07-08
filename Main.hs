@@ -3,10 +3,12 @@ module Main where
 import Debug.Trace(traceIO)
 import Lexer
 import Tokens
+import System.Environment(getArgs)
 
 main :: IO ()
 main = do
-  traceIO $ show $ runAlex "type" tokenize
+  args <- getArgs
+  traceIO $ show $ runAlex (foldr (++) "" args) tokenize
   return ()
 
 tokenize :: Alex [TokenKind]

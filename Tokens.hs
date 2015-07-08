@@ -42,8 +42,8 @@ data TokenKind = Type
                | Semicolon
                | Colon
                | Comma
-               | TString String
-               | TInt Int 
+               | TString !String
+               | TInt !Int 
                | Id
                | Eof
                deriving (Eq, Ord, Show)
