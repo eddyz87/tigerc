@@ -5,10 +5,11 @@ module LexerState where
 import Control.Lens
 
 data AlexUserState = AlexUserState { _curString :: !String,
-                                     _commentsLevel :: !Int }
+                                     _commentsLevel :: !Int,
+                                     _startCode :: !Int }
                      deriving Show
 
 $(makeLenses ''AlexUserState)
 
 alexInitUserState :: AlexUserState
-alexInitUserState = AlexUserState "" 0
+alexInitUserState = AlexUserState "" 0 0
