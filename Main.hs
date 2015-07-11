@@ -11,11 +11,11 @@ main = do
   traceIO $ show $ runAlex (foldr (++) "" args) tokenize
   return ()
 
-tokenize :: Alex [TokenKind]
+tokenize :: Alex [Token]
 tokenize = loop []
   where
     loop acc = do
       t <- alexMonadScan
       case t of
-       Eof -> return $ reverse acc
+       Token _ Eof -> return $ reverse acc
        _ -> loop $ t:acc

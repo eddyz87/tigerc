@@ -1,7 +1,14 @@
 module Tokens where
 
-data Pos = Pos Int Int
+type Line = Int
+type Column = Int
+
+data Pos = Pos Line Column
+           deriving (Show)
+
 data Token = Token Pos TokenKind
+             deriving (Show)
+
 data TokenKind = Type
                | Var
                | Function

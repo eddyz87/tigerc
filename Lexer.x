@@ -18,23 +18,27 @@ tokens :-
 
 <0> $white+            ;
 <0> type               { tk Type }
-<0> \"                 { st $ do startCode .= string; alexMonadScan }
+<0> \"                 { \inp _ -> do
+                                      startCode .= string
+                                      stringStart .= alexPos inp
+                                      alexMonadScan }
 <0> "/*"               { st $ do
                                 commentsLevel += 1
                                 startCode .= comment
                                 alexMonadScan
                        }
 -- <string> \\\"          { stringchar }
-<string> [^\"]         { mt $ \str -> do
-                                        cur_str <- use curString
-                                        state <- get
-                                        curString .= (str ++ cur_str)
-                                        alexMonadScan }
-<string> \"            { st $ do
-                                cur_str <- use curString
-                                curString .= ""
-                                startCode .= 0
-                                return $ TString $ reverse cur_str }
+<string> [^\"]         { \inp len -> do
+                                       cur_str <- use curString
+                                       curString .= ((alexMatch inp len) ++ cur_str)
+                                       alexMonadScan }
+<string> \"            { \inp _ -> do
+                                     str <- use curString
+                                     pos <- use stringStart
+                                     curString .= ""
+                                     stringStart .= nonePos
+                                     startCode .= 0
+                                     return $ Token pos (TString $ reverse str) }
 
 <comment> "/*"         { st $ do
                                 commentsLevel += 1
@@ -60,14 +64,19 @@ instance MonadState AlexUserState Alex where
       in
        Right (s', a)
 
-alexEOF = return Eof
+alexEOF :: Alex Token
+alexEOF = do
+  inp <- alexGetInput
+  returnToken inp Eof
 
-tk tok = \_ _ -> return tok
-st fn = \_ _ -> fn
-mt fn = \inp len -> fn $ alexCurrentMatch inp len
+tk tok = \inp _ -> returnToken inp tok
+st fn  = \_ _ -> fn
 
-alexCurrentMatch :: AlexInput -> Int -> String
-alexCurrentMatch (_,_,_,str) len = take len str
+alexMatch :: AlexInput -> Int -> String
+alexMatch (_,_,_,str) len = take len str
+alexPos (AlexPn _ l c,_,_,_) = Pos l c
 
-
+returnToken inp tk = return $ Token (alexPos inp) tk
+                               
+alexMonadScan :: Alex Token
 }
