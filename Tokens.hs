@@ -51,7 +51,7 @@ data TokenKind = Type
                | Comma
                | TString !String
                | TInt !Int 
-               | Id
+               | Id !String
                | Eof
                deriving (Eq, Ord, Show)
                  
