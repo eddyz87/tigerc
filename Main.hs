@@ -2,6 +2,7 @@ module Main where
 
 import Debug.Trace(traceIO)
 import Lexer
+import Parser
 import Tokens
 import System.Environment(getArgs)
 

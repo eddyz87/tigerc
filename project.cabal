@@ -19,8 +19,8 @@ executable main
   main-is: Main.hs
   -- other-modules:       
   -- other-extensions:
-  build-tools:         alex
-  other-modules:       Lexer
+  build-tools:         alex, happy
+  other-modules:       Lexer, Parser
   build-depends:       array >= 0.5.0.0
                      , base >=4.7 && <4.8
                      , lens
