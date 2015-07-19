@@ -51,6 +51,15 @@ import Tokens
 %token ':'         { Colon }
 %token ','         { Comma }
 
+%nonassoc ':='
+%nonassoc 'do'
+%right 'then' 'else'
+%nonassoc 'of'
+%left '|' '&'
+%nonassoc '=' '>' '<' '>=' '<=' '<>'
+%left '+' '-'
+%left '*' '/'
+
 %%
 
 decs : decs dec                 {}
@@ -70,15 +79,16 @@ ty : id                         {}
 tyfields: tyfields ',' tyfield  {}
         |                       {}
 
-tyfield: id ':' id              {}
+tyfield : id ':' id             {}
 
-vardec: 'var' id ':=' exp         {}
-      | 'var' id ':' id ':=' exp  {}            
+vardec : 'var' id ':=' exp         {}
+       | 'var' id ':' id ':=' exp  {}            
 
-fundec: 'function' id '(' tyfields ')' '=' exp        {}
-      | 'function' id '(' tyfields ')' ':' id '=' exp {}
+fundec : 'function' id '(' tyfields ')' '=' exp        {}
+       | 'function' id '(' tyfields ')' ':' id '=' exp {}
       
-exp : lvalue               {}
+exp : lvalue_not_id        {}
+    | id                   {}
     | 'nil'                {}
     | '(' exps ')'         {}
     | int                  {}
@@ -106,7 +116,7 @@ exp : lvalue               {}
     | 'for' id ':=' exp 'to' exp 'do' exp  {}
     | 'break'                              {}
     | 'let' decs 'in' exps 'end'           {}
-
+        
 exps : exps ';' exp        {}
      |                     {}
     
@@ -118,10 +128,12 @@ inits : inits ',' init     {}
 
 init : id '=' exp          {}
       
-lvalue: id                                {}
-      | lvalue '.' id                     {}
-      | lvalue '[' exp ']'                {}
-    
+lvalue : id                {}
+       | id '[' exp ']'    {}
+       | lvalue_not_id     {}
+
+lvalue_not_id : lvalue '.' id             {}
+              | lvalue_not_id '[' exp ']' {}
     
 {
 
