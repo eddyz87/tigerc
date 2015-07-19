@@ -82,10 +82,9 @@ ty :: { Ty }
 ty : id                         { NameTy $1 }
    | '{' tyfields '}'           { RecordTy $2 }
    | 'array' 'of' id            { ArrayTy $3 }
-
-tyfields :: { [Field] }   
-tyfields : tyfields ',' tyfield    { $3 : $1 }
-         |                         { [] }
+   
+tyfields :: { [Field] }
+tyfields : list(tyfield, ',')  { $1 }
 
 tyfield :: { Field }         
 tyfield : id ':' id                { Field $1 $3 }
@@ -131,17 +130,14 @@ exp : lvalue_not_id        { VarExp $1 }
     | 'break'                              { BreakExp }
     | 'let' decs 'in' exps 'end'           { LetExp $2 (SeqExp $4) }
 
-exps :: { [Exp] }    
-exps : exps ';' exp        { $3 : $1 }
-     |                     { [] }
+exps :: { [Exp] }
+exps : list(exp, ';')  { $1 }
 
 args :: { [Exp] }
-args : args ',' exp        { $3 : $1 }
-     |                     { [] }
+args : list(exp, ',')  { $1 }
 
 inits :: { [(Id, Exp)] }
-inits : inits ',' init     { $3 : $1 }
-      |                    { [] }
+inits : list(init, ',')  { $1 }
 
 init :: { (Id, Exp) }
 init : id '=' exp          { ($1, $3) }
@@ -154,7 +150,13 @@ lvalue : id                { SimpleVar $1 }
 lvalue_not_id :: { Var }       
 lvalue_not_id : lvalue '.' id             { FieldVar $1 $3 }
               | lvalue_not_id '[' exp ']' { SubscriptVar $1 $3 }
-    
+
+list(kind, sep) : rlist(kind, sep)  { reverse $1 }
+   
+rlist(kind, sep) : rlist(kind, sep) sep kind    { $3 : $1 }
+                 | kind                         { [$1] }
+                 |                              { [] }
+              
 {
 
 happyError :: [T.TokenKind] -> a
