@@ -5,6 +5,9 @@ import Ast
 }
 
 %name parse
+
+%monad { Either String }
+
 %tokentype { T.TokenKind }
 
 %token int         { T.TInt $$ }
@@ -159,7 +162,8 @@ rlist(kind, sep) : rlist(kind, sep) sep kind    { $3 : $1 }
               
 {
 
-happyError :: [T.TokenKind] -> a
-happyError _ = error "Parse error"
+happyError :: [T.TokenKind] -> Either String a
+happyError lookahead = Left $ "Parser error at tokens " ++
+                              (show lookahead)
 
 }

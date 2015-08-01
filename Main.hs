@@ -14,12 +14,9 @@ main = do
   return ()
 
 parseString :: String -> Either String [Dec]
-parseString str = 
-  let tokens = runAlex str tokenize in
-   case tokens of
-   Right lst -> Right $ parse $ map token2TokenKind lst
-   Left err -> Left $ "Lexer error: " ++ err
-
+parseString str = do
+  tokens <- runAlex str tokenize
+  parse $ map token2TokenKind tokens
 
 token2TokenKind :: Token -> TokenKind
 token2TokenKind (Token _ k) = k
@@ -32,3 +29,8 @@ tokenize = loop []
       case t of
        Token _ Eof -> return $ reverse acc
        _ -> loop $ t:acc
+
+-- testParserInDir :: String -> IO ()
+-- testParserInDir dir = do
+--   ;;
+--   return ()
