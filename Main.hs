@@ -9,6 +9,7 @@ import System.Environment(getArgs)
 import System.Directory (doesDirectoryExist, getDirectoryContents)
 import System.FilePath ((</>))
 import Control.Monad (forM, liftM)
+import Control.Monad.State
 import Text.Show.Pretty (ppShow)
 import Data.List
 import Data.IORef
@@ -19,22 +20,27 @@ main = do
   putStrLn $ show $ parseString (foldr (++) "" args)
   return ()
 
+data ParserTestState =
+  ParserTestState { stPassed :: Int, stErrors :: [(String, String)] }
+type PS = StateT ParserTestState IO
+
+testFile :: FilePath -> PS ()
+testFile file = do
+  r <- liftIO $ parseFile file
+  case r of
+   Left err -> modify $ \s -> s { stErrors = (file, err) : (stErrors s) }
+   _ -> modify $ \s -> s { stPassed = stPassed s + 1 }
+  return ()
+
 testParserInDir :: String -> IO ()
 testParserInDir dir = do
-  failed <- newIORef 0
-  ok <- newIORef 0
-  let testFile file = do
-        r <- parseFile file
-        case r of
-         Left err -> do putStrLn $ file ++ ": " ++ err
-                        modifyIORef failed (+1)
-         _ -> modifyIORef ok (+1)
   files <- findFiles (isSuffixOf ".tig") dir
-  mapM_ testFile files
-  failed' <- readIORef failed
-  ok' <- readIORef ok
-  putStrLn $ "Fail: " ++ (show failed')
-  putStrLn $ "Pass: " ++ (show ok')
+  st <- execStateT (sequence_ $ map testFile files) $ ParserTestState 0 []
+  let sorted = sortBy (\x y -> compare (fst x) (fst y)) (stErrors st)
+  forM_ sorted $ \(file, err) -> do
+    putStrLn $ file ++ ": " ++ err
+  putStrLn $ "Fail: " ++ (show $ length $ stErrors st)
+  putStrLn $ "Pass: " ++ (show $ stPassed st)
   return ()
 
 findFiles :: (FilePath -> Bool) -> FilePath -> IO [FilePath]
@@ -49,7 +55,7 @@ findFiles fn dir = do
       else return $ if (fn p) then [p] else []
     listDir dir = do
       ents <- getDirectoryContents dir
-      return $ map ((</>) dir) $ sort $ filter notDots ents
+      return $ map ((</>) dir) $ filter notDots ents
     notDots p = p /= "." && p /= ".."
 
 parseFile :: FilePath -> IO (Either String Exp)
