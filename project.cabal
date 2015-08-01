@@ -25,5 +25,8 @@ executable main
                      , base >=4.7 && <4.8
                      , lens
                      , mtl
+                     , directory
+                     , filepath
+                     , pretty-show
   -- hs-source-dirs:      
   default-language:    Haskell2010

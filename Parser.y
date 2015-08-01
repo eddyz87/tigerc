@@ -66,8 +66,8 @@ import Ast
 
 %%
 
-program :: { [Dec] }
-program : decs                  { $1 }
+program :: { Exp }
+program : exp                   { $1 }
 
 decs :: { [Dec] }
 decs : decs dec                 { $2 : $1 }
@@ -105,6 +105,7 @@ fundec : 'function' id '(' tyfields ')' '=' exp
 exp :: { Exp }
 exp : lvalue_not_id        { VarExp $1 }
     | id                   { VarExp (SimpleVar $1) }
+    | id '[' exp ']'       { VarExp $ SubscriptVar (SimpleVar $1) $3 }
     | 'nil'                { NilExp }
     | '(' exps ')'         { SeqExp $2 }
     | int                  { IntExp $1 }
