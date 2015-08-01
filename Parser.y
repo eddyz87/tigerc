@@ -8,52 +8,52 @@ import Ast
 
 %monad { Either String }
 
-%tokentype { T.TokenKind }
+%tokentype { T.Token }
 
-%token int         { T.TInt $$ }
-%token string      { T.TString $$ }
-%token id          { T.Id $$ }
+%token int         { T.Token _ (T.TInt $$) }
+%token string      { T.Token _ (T.TString $$) }
+%token id          { T.Token _ (T.Id $$) }
 
-%token 'type'      { T.Type }
-%token 'var'       { T.Var }  
-%token 'function'  { T.Function }
-%token 'break'     { T.Break }
-%token 'of'        { T.Of }
-%token 'end'       { T.End }
-%token 'in'        { T.In }
-%token 'nil'       { T.Nil }
-%token 'let'       { T.Let }
-%token 'do'        { T.Do }
-%token 'to'        { T.To }
-%token 'for'       { T.For }
-%token 'while'     { T.While }
-%token 'else'      { T.Else }
-%token 'then'      { T.Then }
-%token 'if'        { T.If }
-%token 'array'     { T.Array }
-%token ':='        { T.Assign }
-%token '|'         { T.Or }
-%token '&'         { T.And }
-%token '>='        { T.Ge }
-%token '>'         { T.Gt }
-%token '<='        { T.Le }
-%token '<'         { T.Lt }
-%token '<>'        { T.Neq }
-%token '='         { T.Eq }
-%token '/'         { T.Divide }
-%token '*'         { T.Times }
-%token '-'         { T.Minus }
-%token '+'         { T.Plus }
-%token '.'         { T.Dot }
-%token '}'         { T.Rbrace }
-%token '{'         { T.Lbrace }
-%token ']'         { T.Rbrack }
-%token '['         { T.Lbrack }
-%token ')'         { T.Rparen }
-%token '('         { T.Lparen }
-%token ';'         { T.Semicolon }
-%token ':'         { T.Colon }
-%token ','         { T.Comma }
+%token 'type'      { T.Token _ T.Type }
+%token 'var'       { T.Token _ T.Var }  
+%token 'function'  { T.Token _ T.Function }
+%token 'break'     { T.Token _ T.Break }
+%token 'of'        { T.Token _ T.Of }
+%token 'end'       { T.Token _ T.End }
+%token 'in'        { T.Token _ T.In }
+%token 'nil'       { T.Token _ T.Nil }
+%token 'let'       { T.Token _ T.Let }
+%token 'do'        { T.Token _ T.Do }
+%token 'to'        { T.Token _ T.To }
+%token 'for'       { T.Token _ T.For }
+%token 'while'     { T.Token _ T.While }
+%token 'else'      { T.Token _ T.Else }
+%token 'then'      { T.Token _ T.Then }
+%token 'if'        { T.Token _ T.If }
+%token 'array'     { T.Token _ T.Array }
+%token ':='        { T.Token _ T.Assign }
+%token '|'         { T.Token _ T.Or }
+%token '&'         { T.Token _ T.And }
+%token '>='        { T.Token _ T.Ge }
+%token '>'         { T.Token _ T.Gt }
+%token '<='        { T.Token _ T.Le }
+%token '<'         { T.Token _ T.Lt }
+%token '<>'        { T.Token _ T.Neq }
+%token '='         { T.Token _ T.Eq }
+%token '/'         { T.Token _ T.Divide }
+%token '*'         { T.Token _ T.Times }
+%token '-'         { T.Token _ T.Minus }
+%token '+'         { T.Token _ T.Plus }
+%token '.'         { T.Token _ T.Dot }
+%token '}'         { T.Token _ T.Rbrace }
+%token '{'         { T.Token _ T.Lbrace }
+%token ']'         { T.Token _ T.Rbrack }
+%token '['         { T.Token _ T.Lbrack }
+%token ')'         { T.Token _ T.Rparen }
+%token '('         { T.Token _ T.Lparen }
+%token ';'         { T.Token _ T.Semicolon }
+%token ':'         { T.Token _ T.Colon }
+%token ','         { T.Token _ T.Comma }
 
 %nonassoc ':='
 %nonassoc 'do'
@@ -162,8 +162,8 @@ rlist(kind, sep) : rlist(kind, sep) sep kind    { $3 : $1 }
               
 {
 
-happyError :: [T.TokenKind] -> Either String a
-happyError lookahead = Left $ "Parser error at tokens " ++
-                              (show lookahead)
+happyError :: [T.Token] -> Either String a
+happyError lookahead = Left $ "Parser error at token " ++
+                              (show $ take 1 lookahead)
 
 }

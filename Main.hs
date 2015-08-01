@@ -14,12 +14,7 @@ main = do
   return ()
 
 parseString :: String -> Either String [Dec]
-parseString str = do
-  tokens <- runAlex str tokenize
-  parse $ map token2TokenKind tokens
-
-token2TokenKind :: Token -> TokenKind
-token2TokenKind (Token _ k) = k
+parseString str = runAlex str tokenize >>= parse
 
 tokenize :: Alex [Token]
 tokenize = loop []
