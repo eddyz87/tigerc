@@ -98,9 +98,9 @@ vardec : 'var' id ':=' exp         { VarDec $2 Nothing $4 }
 
 fundec :: { Dec }
 fundec : 'function' id '(' tyfields ')' '=' exp
-         { FunctionDec [(FunDec $2 $4 Nothing $7)] }
+         { FunDec $2 $4 Nothing $7 }
        | 'function' id '(' tyfields ')' ':' id '=' exp
-         { FunctionDec [(FunDec $2 $4 (Just $7) $9)] }
+         { FunDec $2 $4 (Just $7) $9 }
 
 exp :: { Exp }
 exp : lvalue_not_id        { VarExp $1 }

@@ -13,6 +13,7 @@ import Control.Monad.State
 import Text.Show.Pretty (ppShow)
 import Data.List
 import Data.IORef
+import qualified Data.List
 
 main :: IO ()
 main = do
@@ -72,4 +73,3 @@ tokenize = loop []
       case t of
        Token _ Eof -> return $ reverse acc
        _ -> loop $ t:acc
-

@@ -10,6 +10,8 @@ data Var = SimpleVar Id
 
 type InitExp = Exp
 type ToExp = Exp
+type TrueExp = Exp
+type FalseExp = Exp
 
 data Exp = VarExp Var
          | NilExp
@@ -20,7 +22,7 @@ data Exp = VarExp Var
          | RecordExp [(Id, Exp)] TypeId
          | SeqExp [Exp]
          | AssignExp Var Exp
-         | IfExp Exp Exp (Maybe Exp)
+         | IfExp Exp TrueExp (Maybe FalseExp)
          | WhileExp Exp Exp
          | ForExp Id InitExp ToExp Exp
          | BreakExp
@@ -28,7 +30,7 @@ data Exp = VarExp Var
          | ArrayExp TypeId Exp InitExp
          deriving (Show)
 
-data Dec = FunctionDec [FunDec]
+data Dec = FunDec Id [Field] (Maybe TypeId) Exp
          | VarDec Id (Maybe TypeId) Exp
          | TypeDec [(Id, Ty)]
          deriving (Show)
@@ -37,9 +39,6 @@ data Ty = NameTy Id
         | RecordTy [Field]
         | ArrayTy Id
         deriving (Show)
-
-data FunDec = FunDec Id [Field] (Maybe TypeId) Exp
-            deriving (Show)
 
 data Field = Field Id TypeId
            deriving (Show)
@@ -56,4 +55,4 @@ data Oper = Plus
           | Le
           | And
           | Or
-          deriving (Show)
+          deriving (Show, Eq)
