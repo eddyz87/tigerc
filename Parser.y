@@ -69,9 +69,9 @@ import Ast
 program :: { Exp }
 program : exp                   { $1 }
 
-decs :: { [Dec] }
-decs : decs dec                 { $2 : $1 }
-     |                          { [] }
+decs : decs_aux                 { reverse $1 }
+decs_aux : decs_aux dec         { $2 : $1 }
+         |                      { [] }
 
 dec :: { Dec }
 dec : tydec                     { $1 }
@@ -79,7 +79,7 @@ dec : tydec                     { $1 }
     | fundec                    { $1 }
 
 tydec :: { Dec }
-tydec : 'type' id '=' ty        { TypeDec [($2, $4)] }
+tydec : 'type' id '=' ty        { TypeDec $2 $4 }
 
 ty :: { Ty }
 ty : id                         { NameTy $1 }

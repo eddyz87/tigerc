@@ -13,11 +13,11 @@ data Type =
   | Array Type Unique
   | Nil
   | Unit
-  | Syn Id Type
+  | Syn Type
   deriving (Show, Eq)
 
 data EnvEntry =
-    VarEntry Type
+    VarEntry { varTyp :: Type }
   | FunEntry { fnFormals :: [Type],
                fnResult :: Type }
   deriving (Show, Eq)

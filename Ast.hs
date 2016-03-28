@@ -32,7 +32,7 @@ data Exp = VarExp Var
 
 data Dec = FunDec Id [Field] (Maybe TypeId) Exp
          | VarDec Id (Maybe TypeId) Exp
-         | TypeDec [(Id, Ty)]
+         | TypeDec Id Ty
          deriving (Show)
 
 data Ty = NameTy Id
@@ -40,7 +40,7 @@ data Ty = NameTy Id
         | ArrayTy Id
         deriving (Show)
 
-data Field = Field Id TypeId
+data Field = Field { fieldName :: Id,  fieldTyp :: TypeId }
            deriving (Show)
 
 data Oper = Plus
