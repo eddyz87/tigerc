@@ -5,12 +5,15 @@ import Types
 import qualified Data.Map as M
 import qualified Data.List as L
 import Control.Monad (foldM)
-import Data.Maybe (isNothing, fromMaybe, fromJust)
+import Data.Maybe (isNothing, fromMaybe, fromJust, maybe)
 import Main (parseString)
+import Debug.Trace (trace, traceM)
 
-type ErrorMsg = String
-type TypingResult = Either [ErrorMsg] Type
+type ErrorMessages = [String]
+type TypingResult = Either ErrorMessages Type
 
+baseTenv = M.fromList [("int", IntType)]
+    
 expType :: TypeEnv -> VarEnv -> Exp -> TypingResult
 expType tenv venv = tExp
   where
@@ -45,17 +48,18 @@ expType tenv venv = tExp
                     wrongNames = actualNames L.\\ formalNames
                 in
                   case (L.null missingNames, L.null wrongNames) of
-                    (True, True) -> let formals' = L.sortOn fst formals
-                                        actuals' = L.sortOn fst actuals
-                                    in do
-                                      mapM_ (\((name, typ), (_, a)) -> do
-                                               at <- tExp a
-                                               if at == typ
-                                               then Right typ
-                                               else tErr $ "wrong type of field " ++ qId name ++ " initializer" ++
-                                                           " should be " ++ show typ ++ " but found " ++ show at)
-                                            (L.zip formals' actuals')
-                                      Right recTyp
+                    (True, True) ->
+                        let formals' = L.sortOn fst formals
+                            actuals' = L.sortOn fst actuals
+                        in do
+                          mapM_ (\((name, typ), (_, a)) -> do
+                                   at <- tExp a
+                                   if at == typ
+                                   then Right typ
+                                   else tErr $ "wrong type of field " ++ qId name ++ " initializer" ++
+                                               " should be " ++ show typ ++ " but found " ++ show at)
+                                (L.zip formals' actuals')
+                          Right recTyp
                     (False, _) -> tErr $ "the field names are missing: " ++ show missingNames
                     (_, False) ->
                         tErr $ "the field names are not in record " ++ qId recTypId ++ ": " ++ show missingNames
@@ -64,7 +68,7 @@ expType tenv venv = tExp
       SeqExp [] -> Right Unit
       SeqExp el -> do { elt <- mapM tExp el; Right $ L.last elt }
       AssignExp var exp ->
-          do { vart <- tVar var; expectType exp vart }
+          do { vart <- tVar var; expectType exp vart; Right Unit }
       IfExp e1 e2 e3_opt ->
           do
             expectType e1 BoolType
@@ -87,57 +91,28 @@ expType tenv venv = tExp
             expType tenv (M.insert id (VarEntry IntType) venv) exp
             Right Unit
       LetExp decs exp ->
-          do
-            (tenv', venv') <- addDecs decs
-            mapM_ (tDec tenv' venv') decs
-            expType tenv' venv' exp
-    addDecs decs = foldM mkDec (tenv, venv) decs
-    mkDec :: (TypeEnv, VarEnv) -> Dec -> Either [String] (TypeEnv, VarEnv)
-    mkDec (tenv, venv) dec =
-        case dec of
-          FunDec id formals optTypId exp ->
-              do
-                formalTyps <- mapM (lookupType tenv . fieldTyp) formals
-                funTyp <- case optTypId of
-                            Just id -> lookupType tenv id
-                            Nothing -> Right Unit
-                let entry = FunEntry formalTyps funTyp in
-                  Right (tenv, M.insert id entry venv)
-          VarDec id optTypId exp ->
-              do
-                varTyp <- case optTypId of
-                            Just typId -> do
-                              lookupType tenv typId
-                              --expectType exp typ
-                            Nothing -> expType tenv venv exp
-                let entry = VarEntry varTyp in
-                  Right (tenv, M.insert id entry venv)
-          TypeDec id ty ->
-              do
-                typ <- case ty of
-                         NameTy id ->
-                             lookupType tenv id >>= Right . Syn
-                         RecordTy fields -> undefined
-                         ArrayTy id -> undefined
-                Right (M.insert id typ tenv, venv)
-    lookupType tenv id =
-        case M.lookup id tenv of
-          Just typ -> Right typ
-          Nothing -> tErr $ "Can't find type named " ++ qId id
-    tDec tenv venv dec =
-        case dec of
-          -- TODO: fromJust is a bloody hack here
-          FunDec id _ _ exp ->
-              expectType1 tenv venv exp (fnResult $ fromJust $ M.lookup id venv)
-          VarDec id (Just typId) exp ->
-              expectType1 tenv venv exp (varTyp . fromJust $ M.lookup id venv)
-          VarDec id _ _ -> Right (varTyp . fromJust $ M.lookup id venv)
-          TypeDec _ _ -> Right Unit
+          let typDecs = L.filter isTyDec decs
+              varDecs = L.filter (not . isTyDec) decs
+          in do
+            tenv1 <- fillTypeEnv tenv typDecs
+            venv1 <- fillVarEnv tenv1 venv varDecs
+            mapM_ (checkVarEnv tenv1 venv1) varDecs
+            expType tenv1 venv1 exp
+    checkVarEnv tenv venv (FunDec id _ _ exp) = do
+      ent <- venvLookup id venv
+      expectType1 tenv venv exp (fnResult ent)
+    checkVarEnv tenv venv (VarDec id _ exp) = do
+      ent <- venvLookup id venv
+      expectType1 tenv venv exp (varTyp ent)
+    venvLookup id venv =
+        case M.lookup id venv of
+          Just ent -> Right ent
+          Nothing -> tErr $ "Can't find var entry for " ++ show id
     expectType1 tenv venv e typ = do
       et <- expType tenv venv e
       if et == typ
       then Right typ
-      else tErr $ "expected " ++ show e ++ " to be a/an" ++ show typ
+      else tErr $ "expected " ++ show e ++ " to be a/an " ++ show typ
     expectType = expectType1 tenv venv
     tVar v = case v of
       SimpleVar id -> tId id
@@ -161,6 +136,9 @@ expType tenv venv = tExp
 
 qId id = "'" ++ id ++ "'"
 
+isTyDec (TypeDec id _) = True
+isTyDec _ = False
+         
 data OperKind = IntToIntOper
               | IntToBoolOper
               | BoolToBoolOper
@@ -171,13 +149,71 @@ operKind op | L.elem op [Minus, Plus, Div, Mult] = IntToIntOper
             | L.elem op [And, Or] = BoolToBoolOper
             | otherwise = AnyToBoolOper
          
+fillVarEnv :: TypeEnv -> VarEnv -> [Dec] -> Either ErrorMessages VarEnv
+fillVarEnv tenv venv decs = foldM mkEntry venv decs
+    where
+      -- venv' = L.foldl mkEntry decs
+      mkEntry acc (FunDec id fields optTypId _) = do
+        fieldTyps <- mapM (lookupType tenv . fieldTyp) fields
+        funTyp <- case optTypId of
+                    Just typId -> lookupType tenv typId
+                    Nothing -> Right Unit
+        Right $ M.insert id (FunEntry fieldTyps funTyp) acc
+      mkEntry acc (VarDec id optTypId exp) = do
+        typ <- case optTypId of
+                 Just typId -> lookupType tenv typId
+                 Nothing -> expType tenv acc exp
+        Right $ M.insert id (VarEntry typ) acc
+                          
+fillTypeEnv :: TypeEnv -> [Dec] -> Either ErrorMessages TypeEnv
+fillTypeEnv tenv typs =
+      foldM (\tenv id -> do
+               typ <- lookupType tenv' id
+               typ1 <- forceDelays typ
+               return $ M.insert id typ1 tenv)
+            tenv'
+            (map (\(TypeDec id _) -> id) typs)
+    where
+      tenv' = L.foldl addProxy tenv typs
+      addProxy tenv (TypeDec id ty) = M.insert id (tyProxy ty) tenv
+      tyProxy (NameTy id) = Syn id
+      tyProxy (RecordTy fields) =
+          Record (map (\(Field id tid) -> (id, Syn tid)) fields) 0
+      tyProxy (ArrayTy id) = Array (Syn id) 0
+      forceDelay' typ @ (Syn id) visited = do
+          idTyp <- lookupType tenv' id
+          if isSyn idTyp
+          then if L.elem id visited
+               then Left ["Types cycle: " ++ show (L.reverse (id : visited))]
+               else forceDelay' idTyp $ id : visited
+          else Right typ
+      forceDelay' typ _ = Right typ
+      forceDelay typ = forceDelay' typ []
+      forceDelays (Record fields u) = do
+        fields' <- mapM (\(id, typ) -> do
+                           typ1 <- forceDelay typ
+                           return (id, typ1))
+                        fields
+        return $ Record fields' u
+      forceDelays (Array typ u) = do
+        typ1 <- forceDelay typ
+        return $ Array typ1 u
+      forceDelays typ @ (Syn _) =
+          forceDelay typ
+      isSyn (Syn _) = True
+      isSyn _ = False
 
+lookupType :: TypeEnv -> Id -> TypingResult
+lookupType tenv id =
+    case M.lookup id tenv of
+      Just typ -> Right typ
+      Nothing -> Left $ ["Can't find type named " ++ qId id]
+                          
 typeCheckString :: String -> Either String Types.Type
 typeCheckString str =
   case parseString str of
     Right ast ->
-      case expType M.empty M.empty ast of
+      case expType baseTenv M.empty ast of
         Right typ -> Right typ
         Left errs -> Left $ "Typing errors detected:\n" ++ (L.intercalate "\n" errs)
     Left err -> Left err
-

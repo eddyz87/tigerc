@@ -13,7 +13,7 @@ data Type =
   | Array Type Unique
   | Nil
   | Unit
-  | Syn Type
+  | Syn Id
   deriving (Show, Eq)
 
 data EnvEntry =
