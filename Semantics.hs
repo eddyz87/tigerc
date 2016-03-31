@@ -9,8 +9,8 @@ import Data.Maybe (isNothing, fromMaybe, fromJust, maybe)
 import Main (parseString)
 import Debug.Trace (trace, traceM)
 
-type ErrorMessages = [String]
-type TypingResult = Either ErrorMessages Type
+type ErrMsg = String
+type TypingResult = Either ErrMsg Type
 
 baseTenv = M.fromList [("int", IntType)]
     
@@ -115,7 +115,7 @@ expType tenv venv = tExp
       et <- expType tenv venv e
       if et == typ
       then Right typ
-      else Left ["expected " ++ show e ++ " to be a/an " ++ show typ]
+      else Left $ "expected " ++ show e ++ " to be a/an " ++ show typ
     expectType = expectType1 tenv venv
     tVar v = case v of
       SimpleVar id -> tId id
@@ -135,7 +135,7 @@ expType tenv venv = tExp
       Just (VarEntry tp) -> Right tp
       Just _ -> tErr $ qId id ++ " is a function but used as a varaible"
       Nothing -> tErr $ "can't find a variable named " ++ qId id
-    tErr msg = Left [msg]
+    tErr msg = Left msg
 
 qId id = "'" ++ id ++ "'"
 
@@ -149,7 +149,7 @@ operKind op | L.elem op [Minus, Plus, Div, Mult] = IntToIntOper
             | L.elem op [And, Or] = BoolToBoolOper
             | otherwise = AnyToBoolOper
 
-fillDecs :: TypeEnv -> VarEnv -> [Dec] -> Either ErrorMessages (TypeEnv, VarEnv)
+fillDecs :: TypeEnv -> VarEnv -> [Dec] -> Either ErrMsg (TypeEnv, VarEnv)
 fillDecs tenv venv decs = foldM fill (tenv, venv) decs
     where
       fill (tenv, venv) (FunctionDec funs) = do
@@ -162,7 +162,7 @@ fillDecs tenv venv decs = foldM fill (tenv, venv) decs
         tenv' <- fillTypeDecs tenv typs
         Right (tenv', venv)
                           
-fillFunDecs :: TypeEnv -> VarEnv -> [FunDec] -> Either ErrorMessages VarEnv
+fillFunDecs :: TypeEnv -> VarEnv -> [FunDec] -> Either ErrMsg VarEnv
 fillFunDecs tenv venv decs = foldM mkEntry venv decs
     where
       mkEntry acc (FunDec id fields optTypId _) = do
@@ -172,7 +172,7 @@ fillFunDecs tenv venv decs = foldM mkEntry venv decs
                     Nothing -> Right Unit
         Right $ M.insert id (FunEntry fieldTyps funTyp) acc
 
-fillVarDec :: TypeEnv -> VarEnv -> VarDec -> Either ErrorMessages VarEnv
+fillVarDec :: TypeEnv -> VarEnv -> VarDec -> Either ErrMsg VarEnv
 fillVarDec tenv venv dec = mkEntry dec
     where
       mkEntry (VarDec id optTypId exp) = do
@@ -181,7 +181,7 @@ fillVarDec tenv venv dec = mkEntry dec
                  Nothing -> expType tenv venv exp
         Right $ M.insert id (VarEntry typ) venv
                                         
-fillTypeDecs :: TypeEnv -> [(Id, Ty)] -> Either ErrorMessages TypeEnv
+fillTypeDecs :: TypeEnv -> [(Id, Ty)] -> Either ErrMsg TypeEnv
 fillTypeDecs tenv pairs =
       foldM (\tenv id -> do
                typ <- lookupType tenv' id
@@ -200,7 +200,7 @@ fillTypeDecs tenv pairs =
           idTyp <- lookupType tenv' id
           if isSyn idTyp
           then if L.elem id visited
-               then Left ["Types cycle: " ++ show (L.reverse (id : visited))]
+               then Left $ "Types cycle: " ++ show (L.reverse (id : visited))
                else forceDelay' idTyp $ id : visited
           else Right typ
       forceDelay' typ _ = Right typ
@@ -223,13 +223,12 @@ lookupType :: TypeEnv -> Id -> TypingResult
 lookupType tenv id =
     case M.lookup id tenv of
       Just typ -> Right typ
-      Nothing -> Left $ ["Can't find type named " ++ qId id]
+      Nothing -> Left $ "Can't find type named " ++ qId id
                           
-typeCheckString :: String -> Either String Types.Type
+typeCheckString :: String -> IO ()
 typeCheckString str =
-  case parseString str of
-    Right ast ->
-      case expType baseTenv M.empty ast of
-        Right typ -> Right typ
-        Left errs -> Left $ "Typing errors detected:\n" ++ (L.intercalate "\n" errs)
-    Left err -> Left err
+    case typOrErr of
+      Right typ -> putStrLn $ "Type is: " ++ show typ
+      Left err -> putStrLn $ "Typing error detected: " ++ err
+    where
+      typOrErr = parseString str >>= expType baseTenv M.empty
