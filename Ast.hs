@@ -30,10 +30,16 @@ data Exp = VarExp Var
          | ArrayExp TypeId Exp InitExp
          deriving (Show)
 
-data Dec = FunDec Id [Field] (Maybe TypeId) Exp
-         | VarDec Id (Maybe TypeId) Exp
-         | TypeDec Id Ty
+data Dec = FunctionDec [FunDec]
+         | VariableDec VarDec 
+         | TypeDec [(Id, Ty)]
          deriving (Show)
+
+data VarDec = VarDec Id (Maybe TypeId) Exp 
+            deriving (Show)
+
+data FunDec = FunDec Id [Field] (Maybe TypeId) Exp
+            deriving (Show)
 
 data Ty = NameTy Id
         | RecordTy [Field]

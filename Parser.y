@@ -69,17 +69,17 @@ import Ast
 program :: { Exp }
 program : exp                   { $1 }
 
-decs : decs_aux                 { reverse $1 }
-decs_aux : decs_aux dec         { $2 : $1 }
-         |                      { [] }
+decs : nonEmptyList(dec)        { $1 }
 
 dec :: { Dec }
-dec : tydec                     { $1 }
-    | vardec                    { $1 }
-    | fundec                    { $1 }
+dec : tydecs                    { $1 }
+    | vardec                    { VariableDec $1 }
+    | fundecs                   { $1 }
 
-tydec :: { Dec }
-tydec : 'type' id '=' ty        { TypeDec $2 $4 }
+tydecs : nonEmptyList(tydec)    { TypeDec $1 }
+
+tydec :: { (Id, Ty) }
+tydec : 'type' id '=' ty        { ($2, $4) }
 
 ty :: { Ty }
 ty : id                         { NameTy $1 }
@@ -92,11 +92,13 @@ tyfields : list(tyfield, ',')  { $1 }
 tyfield :: { Field }         
 tyfield : id ':' id                { Field $1 $3 }
 
-vardec :: { Dec }
+vardec :: { VarDec }
 vardec : 'var' id ':=' exp         { VarDec $2 Nothing $4 }
        | 'var' id ':' id ':=' exp  { VarDec $2 (Just $4) $6 }
 
-fundec :: { Dec }
+fundecs : nonEmptyList(fundec)     { FunctionDec $1 }
+
+fundec :: { FunDec }
 fundec : 'function' id '(' tyfields ')' '=' exp
          { FunDec $2 $4 Nothing $7 }
        | 'function' id '(' tyfields ')' ':' id '=' exp
@@ -160,6 +162,16 @@ list(kind, sep) : rlist(kind, sep)  { reverse $1 }
 rlist(kind, sep) : rlist(kind, sep) sep kind    { $3 : $1 }
                  | kind                         { [$1] }
                  |                              { [] }
+              
+list1(kind) : rlist1(kind)  { reverse $1 }
+   
+rlist1(kind) : rlist1(kind) kind    { $2 : $1 }
+             | kind                 { [$1] }
+             |                      { [] }
+
+nonEmptyList(kind)    : revNonEmptyList(kind)         { reverse $1 }
+revNonEmptyList(kind) : revNonEmptyList(kind) kind    { $2 : $1 }
+                      | kind                          { [$1] }
               
 {
 

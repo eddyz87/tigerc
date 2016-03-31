@@ -91,28 +91,31 @@ expType tenv venv = tExp
             expType tenv (M.insert id (VarEntry IntType) venv) exp
             Right Unit
       LetExp decs exp ->
-          let typDecs = L.filter isTyDec decs
-              varDecs = L.filter (not . isTyDec) decs
-          in do
-            tenv1 <- fillTypeEnv tenv typDecs
-            venv1 <- fillVarEnv tenv1 venv varDecs
-            mapM_ (checkVarEnv tenv1 venv1) varDecs
+          do
+            (tenv1, venv1) <- fillDecs tenv venv decs
+            mapM_ (checkVarEnv tenv1 venv1) decs
             expType tenv1 venv1 exp
-    checkVarEnv tenv venv (FunDec id _ _ exp) = do
-      ent <- venvLookup id venv
-      expectType1 tenv venv exp (fnResult ent)
-    checkVarEnv tenv venv (VarDec id _ exp) = do
+    checkVarEnv tenv venv (FunctionDec funs) =
+        mapM_ checkFun funs
+        where
+          checkFun (FunDec id _ _ exp) = do
+            ent <- venvLookup id venv
+            expectType1 tenv venv exp (fnResult ent)
+    checkVarEnv tenv venv (VariableDec (VarDec id _ exp)) = do
       ent <- venvLookup id venv
       expectType1 tenv venv exp (varTyp ent)
+      return ()
+    checkVarEnv _ _ (TypeDec _) = return ()
     venvLookup id venv =
         case M.lookup id venv of
           Just ent -> Right ent
           Nothing -> tErr $ "Can't find var entry for " ++ show id
+    expectType1 :: TypeEnv -> VarEnv -> Exp -> Type -> TypingResult
     expectType1 tenv venv e typ = do
       et <- expType tenv venv e
       if et == typ
       then Right typ
-      else tErr $ "expected " ++ show e ++ " to be a/an " ++ show typ
+      else Left ["expected " ++ show e ++ " to be a/an " ++ show typ]
     expectType = expectType1 tenv venv
     tVar v = case v of
       SimpleVar id -> tId id
@@ -136,9 +139,6 @@ expType tenv venv = tExp
 
 qId id = "'" ++ id ++ "'"
 
-isTyDec (TypeDec id _) = True
-isTyDec _ = False
-         
 data OperKind = IntToIntOper
               | IntToBoolOper
               | BoolToBoolOper
@@ -148,34 +148,50 @@ operKind op | L.elem op [Minus, Plus, Div, Mult] = IntToIntOper
             | L.elem op [Gt, Lt, Le, Ge] = IntToBoolOper
             | L.elem op [And, Or] = BoolToBoolOper
             | otherwise = AnyToBoolOper
-         
-fillVarEnv :: TypeEnv -> VarEnv -> [Dec] -> Either ErrorMessages VarEnv
-fillVarEnv tenv venv decs = foldM mkEntry venv decs
+
+fillDecs :: TypeEnv -> VarEnv -> [Dec] -> Either ErrorMessages (TypeEnv, VarEnv)
+fillDecs tenv venv decs = foldM fill (tenv, venv) decs
     where
-      -- venv' = L.foldl mkEntry decs
+      fill (tenv, venv) (FunctionDec funs) = do
+        venv' <- fillFunDecs tenv venv funs
+        Right (tenv, venv')
+      fill (tenv, venv) (VariableDec var) = do
+        venv' <- fillVarDec tenv venv var
+        Right (tenv, venv')
+      fill (tenv, venv) (TypeDec typs) = do
+        tenv' <- fillTypeDecs tenv typs
+        Right (tenv', venv)
+                          
+fillFunDecs :: TypeEnv -> VarEnv -> [FunDec] -> Either ErrorMessages VarEnv
+fillFunDecs tenv venv decs = foldM mkEntry venv decs
+    where
       mkEntry acc (FunDec id fields optTypId _) = do
         fieldTyps <- mapM (lookupType tenv . fieldTyp) fields
         funTyp <- case optTypId of
                     Just typId -> lookupType tenv typId
                     Nothing -> Right Unit
         Right $ M.insert id (FunEntry fieldTyps funTyp) acc
-      mkEntry acc (VarDec id optTypId exp) = do
+
+fillVarDec :: TypeEnv -> VarEnv -> VarDec -> Either ErrorMessages VarEnv
+fillVarDec tenv venv dec = mkEntry dec
+    where
+      mkEntry (VarDec id optTypId exp) = do
         typ <- case optTypId of
                  Just typId -> lookupType tenv typId
-                 Nothing -> expType tenv acc exp
-        Right $ M.insert id (VarEntry typ) acc
-                          
-fillTypeEnv :: TypeEnv -> [Dec] -> Either ErrorMessages TypeEnv
-fillTypeEnv tenv typs =
+                 Nothing -> expType tenv venv exp
+        Right $ M.insert id (VarEntry typ) venv
+                                        
+fillTypeDecs :: TypeEnv -> [(Id, Ty)] -> Either ErrorMessages TypeEnv
+fillTypeDecs tenv pairs =
       foldM (\tenv id -> do
                typ <- lookupType tenv' id
                typ1 <- forceDelays typ
                return $ M.insert id typ1 tenv)
             tenv'
-            (map (\(TypeDec id _) -> id) typs)
+            (map fst pairs)
     where
-      tenv' = L.foldl addProxy tenv typs
-      addProxy tenv (TypeDec id ty) = M.insert id (tyProxy ty) tenv
+      tenv' = L.foldl addProxy tenv pairs
+      addProxy tenv (id, ty) = M.insert id (tyProxy ty) tenv
       tyProxy (NameTy id) = Syn id
       tyProxy (RecordTy fields) =
           Record (map (\(Field id tid) -> (id, Syn tid)) fields) 0
