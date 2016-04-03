@@ -30,9 +30,9 @@ data Exp = VarExp Var
          | ArrayExp TypeId Exp InitExp
          deriving (Show)
 
-data Dec = FunctionDec [FunDec]
+data Dec = FunctionDec { functionDecs :: [FunDec]}
          | VariableDec VarDec 
-         | TypeDec [TyDec]
+         | TypeDec { typeDecs :: [TyDec]}
          deriving (Show)
 
 type TyDec = (Id, Ty)

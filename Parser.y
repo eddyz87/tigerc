@@ -1,6 +1,7 @@
 {
 module Parser where
 import qualified Tokens as T
+import qualified Data.List as L
 import Ast
 }
 
@@ -69,14 +70,12 @@ import Ast
 program :: { Exp }
 program : exp                   { $1 }
 
-decs : nonEmptyList(dec)        { $1 }
+decs : nonEmptyList(dec)        { groupDecs $1 }
 
 dec :: { Dec }
-dec : tydecs                    { $1 }
+dec : tydec                     { TypeDec [$1] }
     | vardec                    { VariableDec $1 }
-    | fundecs                   { $1 }
-
-tydecs : nonEmptyList(tydec)    { TypeDec $1 }
+    | fundec                    { FunctionDec [$1] }
 
 tydec :: { (Id, Ty) }
 tydec : 'type' id '=' ty        { ($2, $4) }
@@ -95,8 +94,6 @@ tyfield : id ':' id                { Field $1 $3 }
 vardec :: { VarDec }
 vardec : 'var' id ':=' exp         { VarDec $2 Nothing $4 }
        | 'var' id ':' id ':=' exp  { VarDec $2 (Just $4) $6 }
-
-fundecs : nonEmptyList(fundec)     { FunctionDec $1 }
 
 fundec :: { FunDec }
 fundec : 'function' id '(' tyfields ')' '=' exp
@@ -178,5 +175,21 @@ revNonEmptyList(kind) : revNonEmptyList(kind) kind    { $2 : $1 }
 happyError :: [T.Token] -> Either String a
 happyError lookahead = Left $ "Parser error at token " ++
                               (show $ take 1 lookahead)
+
+groupDecs :: [Dec] -> [Dec]
+groupDecs decs = glue $ L.groupBy eq decs
+  where
+    eq (FunctionDec _) (FunctionDec _) = True
+    eq (TypeDec _) (TypeDec _) = True
+    eq _ _ = False
+    glue :: [[Dec]] -> [Dec]
+    glue [] = []
+    glue ([]:ys) = glue ys
+    glue ((x:xs):ys) = case x of
+      VariableDec _ -> x : (glue $ xs:ys)
+      FunctionDec _ -> (FunctionDec funs):(glue ys)
+        where funs = L.concat $ map functionDecs (x:xs)
+      TypeDec _ -> (TypeDec types):(glue ys)
+        where types = L.concat $ map typeDecs (x:xs)
 
 }
