@@ -32,8 +32,10 @@ data Exp = VarExp Var
 
 data Dec = FunctionDec [FunDec]
          | VariableDec VarDec 
-         | TypeDec [(Id, Ty)]
+         | TypeDec [TyDec]
          deriving (Show)
+
+type TyDec = (Id, Ty)
 
 data VarDec = VarDec Id (Maybe TypeId) Exp 
             deriving (Show)
