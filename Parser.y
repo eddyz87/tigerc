@@ -102,9 +102,7 @@ fundec : 'function' id '(' tyfields ')' '=' exp
          { FunDec $2 $4 (Just $7) $9 }
 
 exp :: { Exp }
-exp : lvalue_not_id        { VarExp $1 }
-    | id                   { VarExp (SimpleVar $1) }
-    | id '[' exp ']'       { VarExp $ SubscriptVar (SimpleVar $1) $3 }
+exp : lvalue               { VarExp $1 }
     | 'nil'                { NilExp }
     | '(' exps ')'         { SeqExp $2 }
     | int                  { IntExp $1 }
@@ -146,13 +144,11 @@ init :: { (Id, Exp) }
 init : id '=' exp          { ($1, $3) }
 
 lvalue :: { Var }
-lvalue : id                { SimpleVar $1 }
-       | id '[' exp ']'    { SubscriptVar (SimpleVar $1) $3 }
-       | lvalue_not_id     { $1 }
-
-lvalue_not_id :: { Var }       
-lvalue_not_id : lvalue '.' id             { FieldVar $1 $3 }
-              | lvalue_not_id '[' exp ']' { SubscriptVar $1 $3 }
+lvalue : id                         { SimpleVar $1 }
+       | id '[' exp ']'             { SubscriptVar (SimpleVar $1) $3 }
+       | lvalue '.' id              { FieldVar $1 $3 }
+       | lvalue '.' id '[' exp ']'
+         { SubscriptVar (FieldVar $1 $3) $5 }
 
 list(kind, sep) : rlist(kind, sep)  { reverse $1 }
    
