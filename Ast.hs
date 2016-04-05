@@ -1,11 +1,13 @@
 module Ast where
 
+import Tokens (Pos)
+
 type Id = String
 type TypeId = Id
 
-data Var = SimpleVar Id
-         | FieldVar Var Id
-         | SubscriptVar Var Exp
+data Var = SimpleVar Id Pos
+         | FieldVar Var Id Pos
+         | SubscriptVar Var Exp Pos
          deriving (Show)
 
 type InitExp = Exp

@@ -4,9 +4,10 @@ type Line = Int
 type Column = Int
 
 data Pos = Pos Line Column
-           deriving (Show)
+         | NoPos
+         deriving (Show)
 
-data Token = Token Pos TokenKind
+data Token = Token { tokenPos :: Pos, tokenKind :: TokenKind }
              deriving (Show)
 
 data TokenKind = Type
@@ -55,3 +56,5 @@ data TokenKind = Type
                | Eof
                deriving (Eq, Ord, Show)
                  
+tokenId :: Token -> String
+tokenId (Token _ (Id s)) = s

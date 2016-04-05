@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
 module Semantics where
@@ -13,6 +14,7 @@ import Control.Lens
 import Data.Maybe (isNothing, fromMaybe, fromJust, maybe)
 import Main (parseString)
 import Debug.Trace (trace, traceM)
+import qualified Tokens as T
 
 type ErrMsg = String
 type TypingResult = Either ErrMsg Type
@@ -34,6 +36,11 @@ initialTypeCheckerState =
                    }
 
 type TypeChecked a = ExceptT String (State TypeCheckerState) a
+
+throwErrorP pos str = throwError $ posStr ++ ": " ++ str
+  where posStr = case pos of
+          T.NoPos -> "<no position>"
+          T.Pos l c -> "(" ++ show l ++ ", " ++ show c ++ ")"
 
 runTypeChecked :: TypeCheckerState -> TypeChecked a -> Either String a
 runTypeChecked state val = evalState (runExceptT val) state
@@ -269,26 +276,26 @@ expType e = case e of
 varType :: Var -> TypeChecked Type
 varType var =
   case var of
-    SimpleVar id -> do
+    SimpleVar id pos -> do
       ent <- lookupVar id
       case ent of
         VarEntry typ -> return typ
-        _ -> throwError $ "Expected " ++ show id ++ " to be a variable"
-    FieldVar var id -> do
+        _ -> throwErrorP pos $ "Expected " ++ show id ++ " to be a variable"
+    FieldVar var id pos -> do
       varTyp <- varType var
       case varTyp of
         Record fields _ ->
           case L.lookup id fields of
             Just typ -> return typ
-            Nothing -> throwError $ "Can't find field " ++ show id
-        _ -> throwError $
+            Nothing -> throwErrorP pos $ "Can't find field " ++ show id
+        _ -> throwErrorP pos $
           "Expected a record near " ++ show id ++ " access"
-    SubscriptVar var exp -> do
+    SubscriptVar var exp pos -> do
       varTyp <- varType var
       assertType exp IntType
       case varTyp of
         Array typ _ -> return typ
-        _ -> throwError $
+        _ -> throwErrorP pos $
           "Expected " ++ show var ++ " to be an array"
 
 data OperKind = IntToIntOper

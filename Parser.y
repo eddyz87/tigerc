@@ -1,6 +1,9 @@
 {
 module Parser where
 import qualified Tokens as T
+import Tokens (tokenPos)
+import Tokens (tokenId)
+import Tokens (Pos(NoPos))
 import qualified Data.List as L
 import Ast
 }
@@ -13,7 +16,7 @@ import Ast
 
 %token int         { T.Token _ (T.TInt $$) }
 %token string      { T.Token _ (T.TString $$) }
-%token id          { T.Token _ (T.Id $$) }
+%token id          { T.Token _ (T.Id _) }
 
 %token 'type'      { T.Token _ T.Type }
 %token 'var'       { T.Token _ T.Var }  
@@ -78,28 +81,28 @@ dec : tydec                     { TypeDec [$1] }
     | fundec                    { FunctionDec [$1] }
 
 tydec :: { (Id, Ty) }
-tydec : 'type' id '=' ty        { ($2, $4) }
+tydec : 'type' id '=' ty        { (tokenId $2, $4) }
 
 ty :: { Ty }
-ty : id                         { NameTy $1 }
+ty : id                         { NameTy $ tokenId $1 }
    | '{' tyfields '}'           { RecordTy $2 }
-   | 'array' 'of' id            { ArrayTy $3 }
+   | 'array' 'of' id            { ArrayTy $ tokenId $3 }
    
 tyfields :: { [Field] }
 tyfields : list(tyfield, ',')  { $1 }
 
 tyfield :: { Field }         
-tyfield : id ':' id                { Field $1 $3 }
+tyfield : id ':' id                { Field (tokenId $1) (tokenId $3) }
 
 vardec :: { VarDec }
-vardec : 'var' id ':=' exp         { VarDec $2 Nothing $4 }
-       | 'var' id ':' id ':=' exp  { VarDec $2 (Just $4) $6 }
+vardec : 'var' id ':=' exp         { VarDec (tokenId $2) Nothing $4 }
+       | 'var' id ':' id ':=' exp  { VarDec (tokenId $2) (Just (tokenId $4)) $6 }
 
 fundec :: { FunDec }
 fundec : 'function' id '(' tyfields ')' '=' exp
-         { FunDec $2 $4 Nothing $7 }
+         { FunDec (tokenId $2) $4 Nothing $7 }
        | 'function' id '(' tyfields ')' ':' id '=' exp
-         { FunDec $2 $4 (Just $7) $9 }
+         { FunDec (tokenId $2) $4 (Just $ tokenId $7) $9 }
 
 exp :: { Exp }
 exp : lvalue               { VarExp $1 }
@@ -107,7 +110,7 @@ exp : lvalue               { VarExp $1 }
     | '(' exps ')'         { SeqExp $2 }
     | int                  { IntExp $1 }
     | string               { StringExp $1 }
-    | id '(' args ')'      { CallExp $1 $3 }
+    | id '(' args ')'      { CallExp (tokenId $1) $3 }
     | '-' exp              { OpExp Minus (IntExp 0) $2 }
     | exp '+' exp          { OpExp Plus $1 $3 }
     | exp '-' exp          { OpExp Minus $1 $3 }
@@ -121,13 +124,13 @@ exp : lvalue               { VarExp $1 }
     | exp '<=' exp         { OpExp Le $1 $3 }
     | exp '|' exp          { OpExp Or $1 $3 }
     | exp '&' exp          { OpExp And $1 $3 }
-    | id '{' inits '}'                     { RecordExp $3 $1 }
-    | id '[' exp ']' 'of' exp              { ArrayExp $1 $3 $6 }
+    | id '{' inits '}'                     { RecordExp $3 (tokenId $1) }
+    | id '[' exp ']' 'of' exp              { ArrayExp (tokenId $1) $3 $6 }
     | lvalue ':=' exp                      { AssignExp $1 $3 }
     | 'if' exp 'then' exp 'else' exp       { IfExp $2 $4 (Just $6) }
     | 'if' exp 'then' exp                  { IfExp $2 $4 Nothing }
     | 'while' exp 'do' exp                 { WhileExp $2 $4 }
-    | 'for' id ':=' exp 'to' exp 'do' exp  { ForExp $2 $4 $6 $8 }
+    | 'for' id ':=' exp 'to' exp 'do' exp  { ForExp (tokenId $2) $4 $6 $8 }
     | 'break'                              { BreakExp }
     | 'let' decs 'in' exps 'end'           { LetExp $2 (SeqExp $4) }
 
@@ -141,14 +144,14 @@ inits :: { [(Id, Exp)] }
 inits : list(init, ',')  { $1 }
 
 init :: { (Id, Exp) }
-init : id '=' exp          { ($1, $3) }
+init : id '=' exp          { (tokenId $1, $3) }
 
 lvalue :: { Var }
-lvalue : id                         { SimpleVar $1 }
-       | id '[' exp ']'             { SubscriptVar (SimpleVar $1) $3 }
-       | lvalue '.' id              { FieldVar $1 $3 }
+lvalue : id                         { SimpleVar (tokenId $1) (tokenPos $1) }
+       | id '[' exp ']'             { SubscriptVar (SimpleVar (tokenId $1) (tokenPos $1)) $3 (tokenPos $2) }
+       | lvalue '.' id              { FieldVar $1 (tokenId $3) (tokenPos $2) }
        | lvalue '.' id '[' exp ']'
-         { SubscriptVar (FieldVar $1 $3) $5 }
+         { SubscriptVar (FieldVar $1 (tokenId $3) (tokenPos $2)) $5 (tokenPos $4) }
 
 list(kind, sep) : rlist(kind, sep)  { reverse $1 }
    
